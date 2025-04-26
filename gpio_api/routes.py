@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app
 from gpio_api.system_state import system_state
 from gpio_api.daemon_worker import DaemonWorker
+from repository.influx_repository import InfluxRepository
 
 gpio_blueprint = Blueprint('gpio', __name__)
 
 daemon = DaemonWorker()
+influx = InfluxRepository()
 daemon.start()
 
 @gpio_blueprint.route('/')
@@ -82,3 +84,38 @@ def get_status():
         "status_message": system_state.status_message,
         "target_temperature": system_state.target_temperature    
     })
+
+@gpio_blueprint.route('/influx/temperature', methods=['GET'])
+def get_recent_temperatures():
+    try:
+        temperatures = influx.read_recent_temperatures()
+        return jsonify(temperatures), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Get recent windows switch states
+@gpio_blueprint.route('/influx/windows_switch', methods=['GET'])
+def get_recent_windows_switch():
+    try:
+        states = influx.read_recent_windows_switch()
+        return jsonify(states), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Get recent present switch states
+@gpio_blueprint.route('/influx/present_switch', methods=['GET'])
+def get_recent_present_switch():
+    try:
+        states = influx.read_recent_present_switch()
+        return jsonify(states), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Get recent fan speeds
+@gpio_blueprint.route('/influx/fan_speed', methods=['GET'])
+def get_recent_fan_speed():
+    try:
+        speeds = influx.read_recent_fan_speed()
+        return jsonify(speeds), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
