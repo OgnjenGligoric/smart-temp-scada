@@ -117,6 +117,9 @@ class DaemonWorker:
         if speed == 1:
             gpio_controller.turn_on_led(17)
         elif speed == 2:
+            gpio_controller.turn_on_led(17)
             gpio_controller.turn_on_led(27)
         elif speed == 3:
+            gpio_controller.turn_on_led(17)
+            gpio_controller.turn_on_led(27)
             gpio_controller.turn_on_led(22)
