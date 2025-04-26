@@ -1,4 +1,4 @@
 flask
-RPI.GPIO
 influxdb-client
 paho-mqtt
+python-dotenv

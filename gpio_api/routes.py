@@ -1,15 +1,11 @@
-from flask import Blueprint, request, jsonify
-from gpio_api import gpio_controller
+from flask import Blueprint, request, jsonify, current_app
 from gpio_api.system_state import system_state
+from gpio_api.daemon_worker import DaemonWorker
 
 gpio_blueprint = Blueprint('gpio', __name__)
 
-# Set up temperature sensor once
-try:
-    device_file = gpio_controller.setup_sensor()
-except Exception as e:
-    device_file = None
-    print(f"Temperature sensor setup failed: {e}")
+daemon = DaemonWorker()
+daemon.start()
 
 @gpio_blueprint.route('/')
 def home():
@@ -18,16 +14,14 @@ def home():
 # Temperature
 @gpio_blueprint.route('/temperature', methods=['GET'])
 def get_temperature():
-    if not device_file:
-        return jsonify({"error": "Temperature sensor not available"}), 500
-    temp = gpio_controller.read_temperature(device_file)
+    temp = daemon.temperature
     return jsonify({"temperature_celsius": temp})
 
 # LED Control
 @gpio_blueprint.route('/led/<int:pin>/on', methods=['POST'])
 def turn_on_led(pin):
     try:
-        gpio_controller.turn_on_led(pin)
+        daemon.set_led("turn_on_led", [pin])
         return jsonify({"pin": pin, "state": "on"}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -35,7 +29,7 @@ def turn_on_led(pin):
 @gpio_blueprint.route('/led/<int:pin>/off', methods=['POST'])
 def turn_off_led(pin):
     try:
-        gpio_controller.turn_off_led(pin)
+        daemon.set_led("turn_off_led", [pin])
         return jsonify({"pin": pin, "state": "off"}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -44,7 +38,7 @@ def turn_off_led(pin):
 @gpio_blueprint.route('/switch/<int:pin>', methods=['GET'])
 def get_switch_state(pin):
     try:
-        state = gpio_controller.read_switch_state(pin)
+        state = daemon.get_switch(pin)
         return jsonify({"pin": pin, "state": "pressed" if state == 0 else "released"}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

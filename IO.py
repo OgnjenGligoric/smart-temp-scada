@@ -61,7 +61,7 @@ def get_switch_states():
 def on_message(client, userdata, msg):
     try:
         command = json.loads(msg.payload.decode())
-
+        print(command)
         action = command.get("action")
         pin = command.get("pin")
 

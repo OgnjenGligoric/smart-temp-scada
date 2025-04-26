@@ -1,10 +1,12 @@
 import threading
+import os
 import time
-from gpio_api import gpio_controller
 from gpio_api.system_state import system_state
-from gpio_api.gpio_controller import read_switch_state
 from config import *
 import repository.influx_repository as influx_repository
+import paho.mqtt.client as mqtt
+import json
+
 
 class PIDController:
     def __init__(self, Kp, Ki, Kd, setpoint, output_limits=(0, 100)):
@@ -15,7 +17,7 @@ class PIDController:
         self.output_limits = output_limits
         self.integral = 0
         self.last_error = None
-        self.influx_client = influx_repository.InfluxRepository()
+        
 
     def compute(self, current_value, dt):
         error = self.setpoint - current_value
@@ -27,12 +29,38 @@ class PIDController:
         return output
 
 class DaemonWorker:
-    def __init__(self, device_file, interval=5):
-        self.device_file = device_file
-        self.interval = interval
+    def __init__(self):
+        self.interval = 5  # seconds
         self.running = False
         self.thread = threading.Thread(target=self._worker, daemon=True)
         self.pid = None
+        self.influx_client = influx_repository.InfluxRepository()
+        self.client = mqtt.Client()
+        self.client.connect(os.getenv('MQTT_BROKER'), int(os.getenv('MQTT_PORT')), 60)
+        self.client.on_message = self.on_message
+        self.client.subscribe(f"{os.getenv('DEVICE_ID')}/status")
+        self.client.loop_start()
+        self.current_temperature = None
+        self.switch_window = None
+        self.switch_someone_present = None
+        self.leds_on = None
+
+    def on_message(self, client, userdata, msg):
+        try:
+            status = json.loads(msg.payload.decode())
+            print(status)
+            print(status)
+
+            self.current_temperature = status.get("temperature_c")
+            self.leds_on = status.get("leds_on")
+            switches = status.get("switches", {})
+            self.switch_window = switches.get("switch_1")
+            self.switch_someone_present = switches.get("switch_2")
+        except Exception as e:
+            print(f"Error handling message: {e}")
+
+    def command(self, action, pin):
+        return {"action": action, "pin": pin}
 
     def start(self):
         self.running = True
@@ -46,21 +74,19 @@ class DaemonWorker:
         print("[Daemon] Background worker started.")
         while self.running:
             try:
-                temp = gpio_controller.read_temperature(self.device_file)
+                temp = self.current_temperature
                 self.influx_client.write_temperature(temp)
                 print(f"[Daemon] Temp: {temp}°C | Mode: {system_state.mode}")
 
                 # Read door and window states
-                door_state = read_switch_state(SWITCH1_PIN)
-                window_state = read_switch_state(SWITCH2_PIN)
+                door_state = self.switch_someone_present
+                window_state = self.switch_window
 
                 # NEW: Check if door or window is open
-                if door_state == 0 or window_state == 0:
+                if door_state == "off" or window_state == "off":
                     print("[Daemon] Door or window open. Pausing system.")
                     # Turn off all fan speeds
-                    gpio_controller.turn_off_led(PIN1)
-                    gpio_controller.turn_off_led(PIN2)
-                    gpio_controller.turn_off_led(PIN3)
+                    self.set_led("turn_off_led", [LED1_PIN, LED2_PIN, LED3_PIN])
 
                     # Update system state if needed
                     system_state.current_speed = 0
@@ -83,9 +109,9 @@ class DaemonWorker:
                 print(f"[Daemon] Error: {e}")
                 time.sleep(5)
 
-
     def _handle_manual(self):
-        self._set_speed(system_state.manual_speed)
+        pass
+        # self._set_speed(system_state.manual_speed)
 
     def _handle_auto(self, temp):
         deviation = abs(temp - system_state.target_temperature)
@@ -110,16 +136,27 @@ class DaemonWorker:
 
     def _set_speed(self, speed):
         # Turn off all LEDs first
-        gpio_controller.turn_off_led(17)
-        gpio_controller.turn_off_led(27)
-        gpio_controller.turn_off_led(22)
-        
+        self.set_led("turn_off_led", [LED1_PIN, LED2_PIN, LED3_PIN])
+
         if speed == 1:
-            gpio_controller.turn_on_led(17)
+            self.set_led("turn_on_led", [LED1_PIN])
         elif speed == 2:
-            gpio_controller.turn_on_led(17)
-            gpio_controller.turn_on_led(27)
+            self.set_led("turn_on_led", [LED1_PIN, LED2_PIN])
         elif speed == 3:
-            gpio_controller.turn_on_led(17)
-            gpio_controller.turn_on_led(27)
-            gpio_controller.turn_on_led(22)
+            self.set_led("turn_on_led", [LED1_PIN, LED2_PIN, LED3_PIN])
+    
+    def set_led(self, action, pins):
+            """Helper to send LED commands easily."""
+            for pin in pins:
+                self.client.publish(
+                    f"{os.getenv('DEVICE_ID')}/command",
+                    json.dumps(self.command(action, pin))
+                )
+
+    def get_switch(self, pin):
+        if pin == 23:
+            return self.switch_window
+        elif pin == 24:
+            return self.switch_someone_present
+        else:
+            return None
