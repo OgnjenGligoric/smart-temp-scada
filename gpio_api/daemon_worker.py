@@ -6,6 +6,8 @@ from config import *
 from repository.influx_repository import InfluxRepository
 import paho.mqtt.client as mqtt
 import json
+import asyncio
+import websockets
 
 
 class PIDController:
@@ -41,18 +43,20 @@ class DaemonWorker:
         self.client.on_message = self.on_message
         self.client.subscribe(f"{os.getenv('DEVICE_ID')}/status")
         self.client.loop_start()
+        self.device_id = None
         self.current_temperature = None
         self.switch_window = None
         self.switch_someone_present = None
         self.leds_on = None
+        self.websocket_uri = "ws://localhost:8000/" 
+        self.websocket = None
 
     def on_message(self, client, userdata, msg):
         try:
             status = json.loads(msg.payload.decode())
             print(status)
-
+            self.device_id = status.get("device_id")
             self.current_temperature = status.get("temperature_c")
-
             self.leds_on = status.get("leds_on")
             switches = status.get("switches", {})
             self.switch_window = switches.get("switch_1")
@@ -80,6 +84,9 @@ class DaemonWorker:
                 self.influx_client.write_windows_switch(self.switch_window)
                 self.influx_client.write_present_switch(self.switch_someone_present)
                 self.influx_client.write_fan_speed(self.leds_on)
+                self.publish_to_websocket()
+
+
                 print(f"[Daemon] Temp: {temp}°C | Mode: {system_state.mode}")
 
                 # Read door and window states
@@ -167,3 +174,37 @@ class DaemonWorker:
             return self.switch_someone_present
         else:
             return None
+    
+    async def _connect_websocket(self):
+        """Establish a WebSocket connection."""
+        try:
+            self.websocket = await websockets.connect(self.websocket_uri)
+            print("[WebSocket] Connected to server.")
+        except Exception as e:
+            print(f"[WebSocket] Error connecting: {e}")
+
+    async def _send_to_websocket(self, message):
+        """Send message to the WebSocket server."""
+        if self.websocket:
+            try:
+                await self.websocket.send(json.dumps(message))
+                print(f"[WebSocket] Message sent: {message}")
+            except Exception as e:
+                print(f"[WebSocket] Error sending message: {e}")
+
+    def publish_to_websocket(self):
+        """Publish relevant data to the WebSocket server."""
+        if self.websocket:
+            data = {
+                "device_id": self.device_id,
+                "temperature": self.current_temperature,
+                "leds_on": self.leds_on,
+                "switch_window": self.switch_window,
+                "switch_someone_present": self.switch_someone_present,
+                "pid_value": system_state.pid_value,
+                "status_message": system_state.status_message,
+            }
+            # Send the data asynchronously to the WebSocket server
+            asyncio.run(self._send_to_websocket(data))
+        else:
+            print("[WebSocket] WebSocket not connected!")
