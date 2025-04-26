@@ -77,6 +77,9 @@ class DaemonWorker:
             try:
                 temp = self.current_temperature
                 self.influx_client.write_temperature(temp)
+                self.influx_client.write_windows_switch(self.switch_window)
+                self.influx_client.write_present_switch(self.switch_someone_present)
+                self.influx_client.write_fan_speed(self.leds_on)
                 print(f"[Daemon] Temp: {temp}°C | Mode: {system_state.mode}")
 
                 # Read door and window states
