@@ -40,5 +40,76 @@ class InfluxRepository:
 
         return temperatures
 
+    # ====== NEW METHODS ======
+
+    def write_windows_switch(self, state: int):
+        point = Point("windows_switch").field("value", state)
+        self.write_api.write(bucket=self.bucket, record=point)
+
+    def read_recent_windows_switch(self, time_range="-1h"):
+        query = f'''
+        from(bucket: "{self.bucket}")
+          |> range(start: {time_range})
+          |> filter(fn: (r) => r._measurement == "windows_switch")
+        '''
+
+        result = self.query_api.query(org=self.org, query=query)
+
+        states = []
+        for table in result:
+            for record in table.records:
+                states.append({
+                    "time": record.get_time(),
+                    "value": record.get_value()
+                })
+
+        return states
+
+    def write_present_switch(self, state: int):
+        point = Point("present_switch").field("value", state)
+        self.write_api.write(bucket=self.bucket, record=point)
+
+    def read_recent_present_switch(self, time_range="-1h"):
+        query = f'''
+        from(bucket: "{self.bucket}")
+          |> range(start: {time_range})
+          |> filter(fn: (r) => r._measurement == "present_switch")
+        '''
+
+        result = self.query_api.query(org=self.org, query=query)
+
+        states = []
+        for table in result:
+            for record in table.records:
+                states.append({
+                    "time": record.get_time(),
+                    "value": record.get_value()
+                })
+
+        return states
+
+    def write_fan_speed(self, speed: int):
+        point = Point("fan_speed").field("value", speed)
+        self.write_api.write(bucket=self.bucket, record=point)
+
+    def read_recent_fan_speed(self, time_range="-1h"):
+        query = f'''
+        from(bucket: "{self.bucket}")
+          |> range(start: {time_range})
+          |> filter(fn: (r) => r._measurement == "fan_speed")
+        '''
+
+        result = self.query_api.query(org=self.org, query=query)
+
+        speeds = []
+        for table in result:
+            for record in table.records:
+                speeds.append({
+                    "time": record.get_time(),
+                    "value": record.get_value()
+                })
+
+        return speeds
+
     def close(self):
         self.client.close()

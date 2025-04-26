@@ -3,13 +3,13 @@ import os
 import time
 from gpio_api.system_state import system_state
 from config import *
-import repository.influx_repository as influx_repository
+from repository.influx_repository import InfluxRepository
 import paho.mqtt.client as mqtt
 import json
 
 
 class PIDController:
-    def __init__(self, Kp, Ki, Kd, setpoint, output_limits=(0, 100)):
+    def __init__(self, Kp, Ki, Kd, setpoint, output_limits=(-100, 100)):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -21,12 +21,13 @@ class PIDController:
 
     def compute(self, current_value, dt):
         error = self.setpoint - current_value
+        print(f"[PID] Error: {error:.2f} | Setpoint: {self.setpoint:.2f} | Current: {current_value:.2f}")
         self.integral += error * dt
         derivative = 0 if self.last_error is None else (error - self.last_error) / dt
         output = (self.Kp * error) + (self.Ki * self.integral) + (self.Kd * derivative)
         output = max(self.output_limits[0], min(self.output_limits[1], output))
         self.last_error = error
-        return output
+        return abs(output)
 
 class DaemonWorker:
     def __init__(self):
@@ -34,7 +35,7 @@ class DaemonWorker:
         self.running = False
         self.thread = threading.Thread(target=self._worker, daemon=True)
         self.pid = None
-        self.influx_client = influx_repository.InfluxRepository()
+        self.influx_client = InfluxRepository()
         self.client = mqtt.Client()
         self.client.connect(os.getenv('MQTT_BROKER'), int(os.getenv('MQTT_PORT')), 60)
         self.client.on_message = self.on_message
@@ -49,9 +50,9 @@ class DaemonWorker:
         try:
             status = json.loads(msg.payload.decode())
             print(status)
-            print(status)
 
             self.current_temperature = status.get("temperature_c")
+
             self.leds_on = status.get("leds_on")
             switches = status.get("switches", {})
             self.switch_window = switches.get("switch_1")
@@ -126,10 +127,13 @@ class DaemonWorker:
     def _handle_pid(self, temp):
         if not self.pid:
             params = system_state.pid_params
+            print(f"[Daemon] PID params: {params}")
             self.pid = PIDController(
                 params["Kp"], params["Ki"], params["Kd"],
                 setpoint=system_state.target_temperature
             )
+            print(f"[Daemon] PID setpoint: {system_state.target_temperature}°C")
+
         output = self.pid.compute(temp, self.interval)
         system_state.pid_value = output
         print(f"[Daemon] PID output: {output:.2f}%")
