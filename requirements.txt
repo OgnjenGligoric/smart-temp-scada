@@ -1,3 +1,4 @@
 flask
 RPI.GPIO
 influxdb-client
+paho-mqtt

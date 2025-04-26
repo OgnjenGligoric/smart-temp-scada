@@ -1,12 +1,13 @@
+import os
 from influxdb_client import InfluxDBClient, Point, WriteOptions
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 class InfluxRepository:
-    def __init__(self, url, token, org, bucket):
-        self.url = url
-        self.token = token
-        self.org = org
-        self.bucket = bucket
+    def __init__(self, url=None, token=None, org=None, bucket=None):
+        self.url = url or os.getenv("INFLUXDB_URL", "http://localhost:8086")
+        self.token = token or os.getenv("INFLUXDB_INIT_ADMIN_TOKEN")
+        self.org = org or os.getenv("INFLUXDB_INIT_ORG")
+        self.bucket = bucket or os.getenv("INFLUXDB_INIT_BUCKET")
 
         self.client = InfluxDBClient(
             url=self.url,

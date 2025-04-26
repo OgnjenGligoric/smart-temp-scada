@@ -4,6 +4,7 @@ from gpio_api import gpio_controller
 from gpio_api.system_state import system_state
 from gpio_api.gpio_controller import read_switch_state
 from config import *
+import repository.influx_repository as influx_repository
 
 class PIDController:
     def __init__(self, Kp, Ki, Kd, setpoint, output_limits=(0, 100)):
@@ -14,6 +15,7 @@ class PIDController:
         self.output_limits = output_limits
         self.integral = 0
         self.last_error = None
+        self.influx_client = influx_repository.InfluxRepository()
 
     def compute(self, current_value, dt):
         error = self.setpoint - current_value
@@ -45,6 +47,7 @@ class DaemonWorker:
         while self.running:
             try:
                 temp = gpio_controller.read_temperature(self.device_file)
+                self.influx_client.write_temperature(temp)
                 print(f"[Daemon] Temp: {temp}°C | Mode: {system_state.mode}")
 
                 # Read door and window states
