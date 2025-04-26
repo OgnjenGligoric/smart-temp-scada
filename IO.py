@@ -1,123 +1,89 @@
-from flask import Flask, jsonify
 import os
 import glob
 import time
+import json
 import RPi.GPIO as GPIO
+import paho.mqtt.client as mqtt
 
-PIN1 = 17
-PIN2 = 27
-PIN3 = 22
+# Config
+LED_PINS = [17, 27, 22]
+SWITCH_PINS = [23, 24]
+MQTT_BROKER = "172.20.10.3"   # change to your broker IP
+MQTT_PORT = 1883
+DEVICE_ID = "raspberry_pi_1"
+PUBLISH_INTERVAL = 5  # seconds
 
-'''
-    Senzor temperature
-    Koriscenje: 
-        1) pozvati sensor = setup_sensor()
-        2) pozvati temperatura = read_temperature(sensor)
-'''
-def setup_sensor():
-    os.system('modprobe w1-gpio')
-    os.system('modprobe w1-therm')
+# GPIO Setup
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
-    base_dir = '/sys/bus/w1/devices/'
-    device_folder = glob.glob(base_dir + '28*')[0]  
-    device_file = device_folder + '/w1_slave'
-    return device_file
-
-def read_temp_raw(device_file):
-    with open(device_file, 'r') as f:
-        lines = f.readlines()
-    return lines
-
-def read_temperature(device_file):
-    lines = read_temp_raw(device_file)
-    
-    while lines[0].strip()[-3:] != 'YES':
-        time.sleep(0.2)
-        lines = read_temp_raw(device_file)
-    
-    equals_pos = lines[1].find('t=')
-    if equals_pos != -1:
-        temp_string = lines[1][equals_pos+2:]
-        temp_c = float(temp_string) / 1000.0
-        return temp_c
-    return None
-
-
-
-
-'''
-    LED
-    Ukljuci LED: turn_on_led(LED_koji_se_ukljucuje)
-    Ugasi LED: turn_off_led(LED_koji_se_gasi)
-    LED1 je na Pinu 17 ukoliko je dobro povezano
-    LED2 je na Pinu 27 ukoliko je dobro povezano
-    LED3 je na Pinu 22 ukoliko je dobro povezano
-    
-    Pinovi u programu se razlikuju po oznaci od onih na raspberry plocici
-'''
-def turn_on_led(pin):
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(pin, GPIO.OUT)
-    GPIO.output(pin, GPIO.HIGH)
-
-def turn_off_led(pin):
-    GPIO.setmode(GPIO.BCM)
+for pin in LED_PINS:
     GPIO.setup(pin, GPIO.OUT)
     GPIO.output(pin, GPIO.LOW)
 
+for pin in SWITCH_PINS:
+    GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
+# Temperature Sensor Setup
+def setup_sensor():
+    os.system('modprobe w1-gpio')
+    os.system('modprobe w1-therm')
+    base_dir = '/sys/bus/w1/devices/'
+    device_folder = glob.glob(base_dir + '28*')[0]
+    return device_folder + '/w1_slave'
 
+def read_temp_raw(device_file):
+    with open(device_file, 'r') as f:
+        return f.readlines()
 
-'''
-    Prekidaci
-    Procitaj stanje prekidaca: stajne_prekidaca = read_switch_state(prekidac)
-    Prekidac1 je na pinu 23 ukoliko je dobro povezano
-    Prekidac2 je na pinu 24 ukoliko je dobro povezano
-    
-    Pinovi u programu se razlikuju po oznaci od onih na raspberry plocici
-'''
-def read_switch_state(pin):
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)  
-    return GPIO.input(pin)
+def read_temperature(device_file):
+    lines = read_temp_raw(device_file)
+    while lines[0].strip()[-3:] != 'YES':
+        time.sleep(0.2)
+        lines = read_temp_raw(device_file)
+    equals_pos = lines[1].find('t=')
+    if equals_pos != -1:
+        return float(lines[1][equals_pos + 2:]) / 1000.0
+    return None
 
+# Count LEDs that are ON
+def count_leds_on():
+    return sum(GPIO.input(pin) for pin in LED_PINS)
 
-'''
-    demo funkcija
-'''
-if __name__ == "__main__":
+# Get switch states
+def get_switch_states():
+    return {
+        f"switch_{i+1}": "on" if GPIO.input(pin) == 0 else "off"
+        for i, pin in enumerate(SWITCH_PINS)
+    }
+
+# MQTT Setup
+client = mqtt.Client()
+client.connect(MQTT_BROKER, MQTT_PORT, 60)
+
+# Main Loop
+def main():
     device_file = setup_sensor()
-    for i in range(3):
-        t = 0.3
-        temperature = read_temperature(device_file)
-        print('temperatura: ', temperature)
-        turn_on_led(PIN1)
-        time.sleep(t)
-        turn_off_led(PIN1)
-        turn_on_led(PIN2)
-        time.sleep(t)
-        turn_off_led(PIN2)
-        turn_on_led(PIN3)
-        time.sleep(t)
-        turn_off_led(PIN3)
-        print(read_switch_state(23))
-        print(read_switch_state(24))
-
 
     try:
-    # Try to import Flask
-        from flask import Flask
+        while True:
+            payload = {
+                "device_id": DEVICE_ID,
+                "temperature_c": read_temperature(device_file),
+                "leds_on": count_leds_on(),
+                "switches": get_switch_states(),
+                "timestamp": int(time.time())
+            }
 
-        # Create a simple Flask app
-        app = Flask(__name__)
+            client.publish(f"{DEVICE_ID}/status", json.dumps(payload))
+            print("Published:", payload)
 
-        # Define a route
-        @app.route('/')
-        def hello_world():
-            return 'Flask is working!'
+            time.sleep(PUBLISH_INTERVAL)
 
-        # Run the app
-        app.run(host='0.0.0.0', port=5000)
+    except KeyboardInterrupt:
+        print("Exiting...")
+    finally:
+        GPIO.cleanup()
 
-    except ImportError:
-        print("Flask is not installed.")
+if __name__ == "__main__":
+    main()
