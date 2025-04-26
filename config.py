@@ -1,0 +1,3 @@
+LED_PINS = [17,27,22]
+
+SWITCH_PINS = [23,24]
