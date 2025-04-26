@@ -13,6 +13,7 @@ MQTT_PORT = 1883
 DEVICE_ID = "raspberry_pi_1"
 PUBLISH_INTERVAL = 5  # seconds
 
+
 # GPIO Setup
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -57,9 +58,43 @@ def get_switch_states():
         for i, pin in enumerate(SWITCH_PINS)
     }
 
+def on_message(client, userdata, msg):
+    try:
+        command = json.loads(msg.payload.decode())
+
+        action = command.get("action")
+        pin = command.get("pin")
+
+        if action == "turn_on_led" and pin in LED_PINS:
+           turn_on_led(pin)
+
+        elif action == "turn_off_led" and pin in LED_PINS:
+            turn_off_led(pin)
+
+        else:
+            print(f"Unknown command: {command}")
+
+    except Exception as e:
+        print(f"Error handling message: {e}")
+
+
+def turn_on_led(pin):
+    if pin not in LED_PINS:
+        raise ValueError("Invalid LED Pin")
+    GPIO.output(pin, GPIO.HIGH)
+
+def turn_off_led(pin):
+    if pin not in LED_PINS:
+        raise ValueError("Invalid LED Pin")
+    GPIO.output(pin, GPIO.LOW)
+
 # MQTT Setup
 client = mqtt.Client()
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
+
+client.on_message = on_message
+client.subscribe(f"{DEVICE_ID}/command")
+client.loop_start()
 
 # Main Loop
 def main():
@@ -76,7 +111,6 @@ def main():
             }
 
             client.publish(f"{DEVICE_ID}/status", json.dumps(payload))
-            print("Published:", payload)
 
             time.sleep(PUBLISH_INTERVAL)
 
