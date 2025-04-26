@@ -5,5 +5,6 @@ class SystemState:
         self.pid_params = {"Kp": 1.0, "Ki": 0.0, "Kd": 0.0}
         self.target_temperature = 22.0  # Ideal room temp
         self.pid_value = 0  # Last PID output (0-100%)
+        self.status_message = "Message"
 
 system_state = SystemState()

@@ -84,5 +84,7 @@ def get_status():
         "mode": system_state.mode,
         "manual_speed": system_state.manual_speed,
         "pid_params": system_state.pid_params,
-        "pid_value": system_state.pid_value
+        "pid_value": system_state.pid_value,
+        "status_message": system_state.status_message,
+        "target_temperature": system_state.target_temperature    
     })

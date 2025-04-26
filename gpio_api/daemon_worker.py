@@ -2,6 +2,8 @@ import threading
 import time
 from gpio_api import gpio_controller
 from gpio_api.system_state import system_state
+from gpio_api.gpio_controller import read_switch_state
+from config import *
 
 class PIDController:
     def __init__(self, Kp, Ki, Kd, setpoint, output_limits=(0, 100)):
@@ -45,19 +47,39 @@ class DaemonWorker:
                 temp = gpio_controller.read_temperature(self.device_file)
                 print(f"[Daemon] Temp: {temp}°C | Mode: {system_state.mode}")
 
-                if system_state.mode == "manual":
-                    self._handle_manual()
+                # Read door and window states
+                door_state = read_switch_state(SWITCH1_PIN)
+                window_state = read_switch_state(SWITCH2_PIN)
 
-                elif system_state.mode == "auto":
-                    self._handle_auto(temp)
+                # NEW: Check if door or window is open
+                if door_state == 0 or window_state == 0:
+                    print("[Daemon] Door or window open. Pausing system.")
+                    # Turn off all fan speeds
+                    gpio_controller.turn_off_led(PIN1)
+                    gpio_controller.turn_off_led(PIN2)
+                    gpio_controller.turn_off_led(PIN3)
 
-                elif system_state.mode == "pid":
-                    self._handle_pid(temp)
+                    # Update system state if needed
+                    system_state.current_speed = 0
+                    system_state.pid_value = 0
+                    system_state.status_message = "Paused (door/window open)"
+                else:
+                    # Normal operation
+                    if system_state.mode == "manual":
+                        self._handle_manual()
+                    elif system_state.mode == "auto":
+                        self._handle_auto(temp)
+                    elif system_state.mode == "pid":
+                        self._handle_pid(temp)
+
+                    system_state.status_message = "Running normally"
 
                 time.sleep(self.interval)
+
             except Exception as e:
                 print(f"[Daemon] Error: {e}")
                 time.sleep(5)
+
 
     def _handle_manual(self):
         self._set_speed(system_state.manual_speed)
