@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-
 import Header from "../components/common/Header";
 import StatCard from "../components/common/StatCard";
 import { Thermometer,User, DoorOpen, Fan } from "lucide-react";
@@ -8,6 +7,8 @@ import ModeSelector from "../components/controls/ModeSelector";
 import ManualSettings from "../components/controls/ManualSettings";
 import PIDControls from "../components/controls/PIDControls";
 import AlarmHistory from "../components/controls/AlarmHistory";
+import WebSocketListener from "../components/controls/WebSocketListener";
+import { useState } from "react";
 
 const salesStats = {
 	totalRevenue: "25°C",
@@ -17,6 +18,8 @@ const salesStats = {
 };
 
 const OverviewPage = () => {
+	const [message, setMessage] = useState(null);
+
 	return (
 		<div className='flex-1 overflow-auto relative z-10'>
 			<Header title='SCADA Dashboard' />
@@ -56,6 +59,13 @@ const OverviewPage = () => {
 
 	
 			</main>
+			<WebSocketListener
+				url="ws://localhost:5001"
+				onMessage={(data) => {
+				console.log("Received:", data);
+				setMessage(data);
+				}}
+			/>
 		</div>
 	);
 };

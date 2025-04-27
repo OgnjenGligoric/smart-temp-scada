@@ -3,3 +3,7 @@ influxdb-client
 paho-mqtt
 python-dotenv
 websockets
+flask-socketio
+websocket-client
+flask-cors
+requests
