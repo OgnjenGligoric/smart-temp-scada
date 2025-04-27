@@ -10,7 +10,9 @@ import AlarmHistory from "../components/controls/AlarmHistory";
 import WebSocketListener from "../components/controls/WebSocketListener";
 import { useState } from "react";
 
-import {sendModeChange} from "../../services/api"
+import {sendModeChange} from "../../services/api";
+import {Toaster, toast} from 'react-hot-toast';
+
 
 
 
@@ -78,6 +80,13 @@ const OverviewPage = () => {
 	}
 
 	return (
+
+		<>
+		<Toaster
+			position='bottom-left'
+			reverseOrder={false}
+			/>
+
 		<div className='flex-1 overflow-auto relative z-10'>
 			<Header title='SCADA Dashboard' />
 
@@ -139,10 +148,13 @@ const OverviewPage = () => {
 						  const updatedAlarms = prevAlarms.filter(alarm => alarm.alarmDescription !== data.alarmDescription);
 						  return [...updatedAlarms, data]; // Always append the new one
 						});
+						toast.error(`ALARM: ${data.alarmDescription}`);
 					}
 				}}
 			/>
 		</div>
+
+		</>
 	);
 };
 export default OverviewPage;
