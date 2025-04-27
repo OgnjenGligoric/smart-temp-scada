@@ -11,7 +11,9 @@ import WebSocketListener from "../components/controls/WebSocketListener";
 import { useState } from "react";
 import { useRef } from "react";
 
-import {sendModeChange} from "../../services/api"
+import {sendModeChange} from "../../services/api";
+import {Toaster, toast} from 'react-hot-toast';
+
 
 
 
@@ -83,6 +85,13 @@ const OverviewPage = () => {
 	}
 
 	return (
+
+		<>
+		<Toaster
+			position='bottom-left'
+			reverseOrder={false}
+			/>
+
 		<div className='flex-1 overflow-auto relative z-10'>
 			<Header title='SCADA Dashboard' />
 
@@ -144,13 +153,17 @@ const OverviewPage = () => {
 							console.log("Alarm received: ", data);
 							setAlarms((prevAlarms) => [data, ...prevAlarms]);
 							lastAlarmTimeRef.current = now;
+							toast.error(`ALARM: ${data.alarmDescription}`);
 						} else {
 							console.log("Alarm dropped due to rate limit");
 						}
-					  }
+					}
+
 				}}
 			/>
 		</div>
+
+		</>
 	);
 };
 export default OverviewPage;
