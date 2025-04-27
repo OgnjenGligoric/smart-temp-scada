@@ -18,11 +18,11 @@ import {sendFanSpeedChange} from "../../../services/api" // Import the API funct
 
 // Define the available manual fan speeds and temperature range
 const manualFanSpeeds = [0, 1, 2, 3];
-const MIN_TEMP = 10; // Using the previous range
-const MAX_TEMP = 40; // Using the previous range
+const MIN_TEMP = 15; // Using the previous range
+const MAX_TEMP = 35; // Using the previous range
 
 // Set an initial dummy value
-const INITIAL_DUMMY_TEMP = 22;
+const INITIAL_DUMMY_TEMP = 15;
 
 const ManualSettings = () => {
     // --- Dummy Local State for Styling Purposes Only ---

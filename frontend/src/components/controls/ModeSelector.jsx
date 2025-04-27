@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 
 // Define the modes and their display properties
 const thermostatModes = [
-  // { value: 'off', name: 'Off' },
+  { value: 'off', name: 'Off' },
   // { value: 'eco', name: 'Eco Mode' },
   { value: 'manual', name: 'Manual Mode' },
   { value: 'auto_3speed', name: 'Automatic (3-Speed)' },
