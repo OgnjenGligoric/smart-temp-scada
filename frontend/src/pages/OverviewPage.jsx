@@ -133,9 +133,12 @@ const OverviewPage = () => {
 						setMessage(data);
 					}
 					// its an alarm, do something with it 
-					else{
-						console.log("Alarm received: ", data)
-						setAlarms((prevAlarms) => [...prevAlarms, data]);
+					else {
+						console.log("Alarm received: ", data);
+						setAlarms((prevAlarms) => {
+						  const updatedAlarms = prevAlarms.filter(alarm => alarm.alarmDescription !== data.alarmDescription);
+						  return [...updatedAlarms, data]; // Always append the new one
+						});
 					}
 				}}
 			/>
