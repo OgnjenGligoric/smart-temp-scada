@@ -9,12 +9,17 @@ import PIDControls from "../components/controls/PIDControls";
 import AlarmHistory from "../components/controls/AlarmHistory";
 import WebSocketListener from "../components/controls/WebSocketListener";
 import { useState } from "react";
+import { useRef } from "react";
 
 import {sendModeChange} from "../../services/api"
 
 
 
 const OverviewPage = () => {
+	const RATE_LIMIT_MS = 1000; // 1 second
+
+	const lastAlarmTimeRef = useRef(0);
+
 	const [message, setMessage] = useState(null);
 	const [alarms, setAlarms] = useState([]);
 
@@ -134,12 +139,15 @@ const OverviewPage = () => {
 					}
 					// its an alarm, do something with it 
 					else {
-						console.log("Alarm received: ", data);
-						setAlarms((prevAlarms) => {
-						  const updatedAlarms = prevAlarms.filter(alarm => alarm.alarmDescription !== data.alarmDescription);
-						  return [...updatedAlarms, data]; // Always append the new one
-						});
-					}
+						const now = Date.now();
+						if (now - lastAlarmTimeRef.current > RATE_LIMIT_MS) {
+							console.log("Alarm received: ", data);
+							setAlarms((prevAlarms) => [data, ...prevAlarms]);
+							lastAlarmTimeRef.current = now;
+						} else {
+							console.log("Alarm dropped due to rate limit");
+						}
+					  }
 				}}
 			/>
 		</div>

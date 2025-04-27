@@ -52,6 +52,11 @@ class DaemonWorker:
         self.switch_someone_present = None
         self.leds_on = None
         self.websocket_client = socketio.Client()
+        self.window_processed = False
+        self.door_processed = False
+        self.high_temperature_processed =False
+        self.low_temperature_processed = False
+
 
 
     def on_message(self, client, userdata, msg):
@@ -75,14 +80,31 @@ class DaemonWorker:
         switch_window = switches.get("switch_1")
         switch_someone_present = switches.get("switch_2")
         print("checking for alarms status: ", status)
-        if switch_window == "off":
+        
+        if switch_window == "off" and not self.window_processed:
+            self.window_processed = True
             self.publish_to_websocket("alarm", "Window open")
-        if switch_someone_present == "off":
+        elif switch_window == "on":
+            self.window_processed = False
+
+        if switch_someone_present == "off" and not self.door_processed:
+            self.door_processed = True
+
             self.publish_to_websocket("alarm", "Door open")
-        if self.current_temperature > system_state.target_temperature + 10:
+        elif switch_someone_present == "on":
+            self.door_processed = False
+
+        if self.current_temperature > system_state.target_temperature + 10 and not self.high_temperature_processed:
+            self.high_temperature_processed = True
             self.publish_to_websocket("alarm", "High temperature")
-        if self.current_temperature < system_state.target_temperature - 10:
+        elif self.current_temperature < system_state.target_temperature + 10:
+            self.high_temperature_processed = False
+
+        if self.current_temperature < system_state.target_temperature - 10 and not self.low_temperature_processed:
+            self.low_temperature_processed = True
             self.publish_to_websocket("alarm", "Low temperature")
+        elif self.current_temperature > system_state.target_temperature - 10:
+            self.low_temperature_processed = False
 
         
 
