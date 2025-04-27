@@ -16,6 +16,7 @@ import {sendModeChange} from "../../services/api"
 
 const OverviewPage = () => {
 	const [message, setMessage] = useState(null);
+	const [alarms, setAlarms] = useState([]);
 
 	const [status,setStatus] = useState({
 		temperature: "25°C",
@@ -117,7 +118,7 @@ const OverviewPage = () => {
 				</div>
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8'>
 					<PIDControls calculatedPIDValue={status.pidValue} />
-					<AlarmHistory />
+					<AlarmHistory alarmHistory={alarms} />
 				</div>
 				<TemperatureOverviewChart />
 
@@ -134,6 +135,7 @@ const OverviewPage = () => {
 					// its an alarm, do something with it 
 					else{
 						console.log("Alarm received: ", data)
+						setAlarms((prevAlarms) => [...prevAlarms, data]);
 					}
 				}}
 			/>
