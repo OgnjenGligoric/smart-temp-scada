@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 
 // Define the modes and their display properties
 const thermostatModes = [
-  { value: 'off', name: 'Off' },
-  { value: 'eco', name: 'Eco Mode' },
+  // { value: 'off', name: 'Off' },
+  // { value: 'eco', name: 'Eco Mode' },
   { value: 'manual', name: 'Manual Mode' },
   { value: 'auto_3speed', name: 'Automatic (3-Speed)' },
   { value: 'auto_pid', name: 'Automatic (PID)' },
@@ -22,6 +22,7 @@ const thermostatModes = [
 // };
 
 const ModeSelector = ({ currentMode, onModeChange }) => {
+
 
   return (
     <motion.div
@@ -53,7 +54,9 @@ const ModeSelector = ({ currentMode, onModeChange }) => {
               value={mode.value}                  // Mode identifier (sent to onModeChange)
               className="hidden peer"             // Hide default, enable peer styling
               checked={currentMode === mode.value} // Controlled by parent's state
-              onChange={() => onModeChange(mode.value)} // Call parent handler on change
+              onChange={() => {
+                onModeChange(mode.value);
+                console.log("Mode changed! ",mode.value)}} // Call parent handler on change
               // Add required={true} if needed for a form
             />
             {/* The styled label - This is the clickable "button" */}

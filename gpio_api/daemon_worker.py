@@ -1,3 +1,4 @@
+from datetime import datetime
 import threading
 import os
 import time
@@ -22,6 +23,8 @@ class PIDController:
         
 
     def compute(self, current_value, dt):
+        print(f"[PID] Kp: {self.Kp} | Ki: {self.Ki} | Kd: {self.Kd}")
+        print(f"[PID] Setpoint: {self.setpoint} | Current Value: {current_value}")
         error = self.setpoint - current_value
         print(f"[PID] Error: {error:.2f} | Setpoint: {self.setpoint:.2f} | Current: {current_value:.2f}")
         self.integral += error * dt
@@ -61,8 +64,27 @@ class DaemonWorker:
             switches = status.get("switches", {})
             self.switch_window = switches.get("switch_1")
             self.switch_someone_present = switches.get("switch_2")
+
+            self.check_for_alarms(status)
+
         except Exception as e:
             print(f"Error handling message: {e}")
+
+    def check_for_alarms(self,status):
+        switches = status.get("switches", {})
+        switch_window = switches.get("switch_1")
+        switch_someone_present = switches.get("switch_2")
+        print("checking for alarms status: ", status)
+        if switch_window == "off":
+            self.publish_to_websocket("alarm", "Window open")
+        if switch_someone_present == "off":
+            self.publish_to_websocket("alarm", "Door open")
+        if self.current_temperature > system_state.target_temperature + 10:
+            self.publish_to_websocket("alarm", "High temperature")
+        if self.current_temperature < system_state.target_temperature - 10:
+            self.publish_to_websocket("alarm", "Low temperature")
+
+        
 
     def command(self, action, pin):
         return {"action": action, "pin": pin}
@@ -85,7 +107,7 @@ class DaemonWorker:
                 self.influx_client.write_windows_switch(self.switch_window)
                 self.influx_client.write_present_switch(self.switch_someone_present)
                 self.influx_client.write_fan_speed(self.leds_on)
-                self.publish_to_websocket()
+                self.publish_to_websocket("message")
 
                 print(f"[Daemon] Temp: {temp}°C | Mode: {system_state.mode}")
 
@@ -94,7 +116,7 @@ class DaemonWorker:
                 window_state = self.switch_window
 
                 # NEW: Check if door or window is open
-                if door_state == "off" or window_state == "off":
+                if (door_state == "off" or window_state == "off") and system_state.mode == "auto":
                     print("[Daemon] Door or window open. Pausing system.")
                     # Turn off all fan speeds
                     self.set_led("turn_off_led", [LED1_PIN, LED2_PIN, LED3_PIN])
@@ -105,6 +127,7 @@ class DaemonWorker:
                     system_state.status_message = "Paused (door/window open)"
                 else:
                     # Normal operation
+                    print(f"[Daemon] Current mode: {system_state.mode}")
                     if system_state.mode == "manual":
                         self._handle_manual()
                     elif system_state.mode == "auto":
@@ -121,8 +144,8 @@ class DaemonWorker:
                 time.sleep(5)
 
     def _handle_manual(self):
-        pass
-        # self._set_speed(system_state.manual_speed)
+        #pass
+        self._set_speed(system_state.manual_speed)
 
     def _handle_auto(self, temp):
         deviation = abs(temp - system_state.target_temperature)
@@ -152,6 +175,7 @@ class DaemonWorker:
         # Turn off all LEDs first
         self.set_led("turn_off_led", [LED1_PIN, LED2_PIN, LED3_PIN])
 
+        print(f"[Daemon] Setting speed to {speed}")
         if speed == 1:
             self.set_led("turn_on_led", [LED1_PIN])
         elif speed == 2:
@@ -176,15 +200,23 @@ class DaemonWorker:
             return None
     
 
-    def publish_to_websocket(self):
+    def publish_to_websocket(self,type, alarmType = None):
         
-        data = {
-            "device_id": self.device_id,
-            "temperature": self.current_temperature,
-            "leds_on": self.leds_on,
-            "switch_window": self.switch_window,
-            "switch_someone_present": self.switch_someone_present,
-            "pid_value": system_state.pid_value,
-            "status_message": system_state.status_message,
-        }
-        self.websocket_client.emit("message", data)
+        if type == "alarm":
+            data = {
+                "alarmDescription": alarmType,
+                "timestamp": datetime.now().isoformat(),
+            }
+        else:
+            data = {
+                "device_id": self.device_id,
+                "temperature": self.current_temperature,
+                "leds_on": self.leds_on,
+                "switch_window": self.switch_window,
+                "switch_someone_present": self.switch_someone_present,
+                "pid_value": system_state.pid_value,
+                "status_message": system_state.status_message,
+                "mode": system_state.mode,
+            }
+
+        self.websocket_client.emit(type, data)

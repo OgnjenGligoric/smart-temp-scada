@@ -65,14 +65,21 @@ def set_manual_speed():
 
 @gpio_blueprint.route('/pid_params', methods=['POST'])
 def set_pid_params():
+    print(f"[ROUTING] Received PID params: {request.json}")
     data = request.json
-    Kp = data.get("Kp")
-    Ki = data.get("Ki")
-    Kd = data.get("Kd")
+    print(f"[ROUTING] Received PID params: {data}")
+    Kp = data.get("kp")
+    Ki = data.get("ki")
+    Kd = data.get("kd")
+    target_temp = data.get("target_temp")
     if None in (Kp, Ki, Kd):
         return jsonify({"error": "Missing PID parameters"}), 400
     system_state.pid_params = {"Kp": Kp, "Ki": Ki, "Kd": Kd}
+    system_state.target_temperature = target_temp
+    print(f"[ROUTING] Updated PID params: {system_state.pid_params}")
     return jsonify({"pid_params": system_state.pid_params})
+
+
 
 @gpio_blueprint.route('/status', methods=['GET'])
 def get_status():
@@ -119,3 +126,4 @@ def get_recent_fan_speed():
         return jsonify(speeds), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    

@@ -8,6 +8,8 @@ import React, { useState } from 'react'; // Import useState
 import { motion } from 'framer-motion';
 import CircularSlider from '@fseehawer/react-circular-slider';
 
+import {sendFanSpeedChange} from "../../../services/api" // Import the API function to send fan speed changes
+
 // Recharts imports are not needed in this component - remove them
 // import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 // Remove dummy data arrays if they are not used in THIS component
@@ -25,22 +27,25 @@ const INITIAL_DUMMY_TEMP = 22;
 const ManualSettings = () => {
     // --- Dummy Local State for Styling Purposes Only ---
     // This state holds the value shown in the center and updates with the slider
-    const [dummyTargetTemp, setDummyTargetTemp] = useState(INITIAL_DUMMY_TEMP);
+    const [targetTemp, setTargetTemp] = useState(INITIAL_DUMMY_TEMP);
     // Dummy state for fan speed button highlight (optional for this specific request, but good to keep for styling)
-    const [dummyCurrentFanSpeed, setDummyCurrentFanSpeed] = useState(0);
+    const [currentFanSpeed, setCurrentFanSpeed] = useState(0);
 
     // Dummy handler for the slider's onChange event
-    const handleDummyTempChange = (newValue) => {
+    const handleTempChange = (newValue) => {
         // The new library provides the continuous value. Round it to an integer for temp display.
         const roundedValue = Math.round(newValue);
-        setDummyTargetTemp(roundedValue); // Update the state to display the new value
+        setTargetTemp(roundedValue); // Update the state to display the new value
         // console.log("Dummy Temp Slider Value:", roundedValue); // Optional logging
     };
 
      // Dummy handler for fan speed buttons (optional for this request, but good for styling buttons)
-    const handleDummySpeedClick = (speed) => {
-        setDummyCurrentFanSpeed(speed);
-        // console.log("Dummy Fan Speed Selected:", speed);
+    const handleSpeedClick = (speed) => {
+        
+        sendFanSpeedChange(speed); // Send the fan speed change to the server
+        console.log("Fan Speed Button Clicked:", speed); // Optional logging
+        setCurrentFanSpeed(speed);
+        
     };
     // --- End Dummy State ---
 
@@ -69,7 +74,7 @@ const ManualSettings = () => {
               max={MAX_TEMP} // Use MAX_TEMP constant
               initialValue={INITIAL_DUMMY_TEMP} // Use INITIAL_DUMMY_TEMP constant
               // Use the dummy state handler for interactions
-              onChange={handleDummyTempChange}
+              onChange={handleTempChange}
 
               // --- Styling Props (adapted for this library) ---
               trackColor="#4B5563" // Background track color (Dark Grey)
@@ -82,7 +87,7 @@ const ManualSettings = () => {
               progressLineCap="round" // Rounded ends
 
               // --- Behavior Props ---
-              // onChange prop is already set to handleDummyTempChange above
+              // onChange prop is already set to handleTempChange above
 
               // --- Label/Value Display Props ---
               // Keep hidden because we are using our custom display div
@@ -96,7 +101,7 @@ const ManualSettings = () => {
            <div className="absolute inset-0 flex items-center justify-center pointer-events-none"> {/* pointer-events-none allows clicking the slider underneath */}
              <div className="text-gray-100 text-4xl font-bold">
                {/* Display the dummy state value */}
-               {dummyTargetTemp}°C {/* Add the Celsius symbol */}
+               {targetTemp}°C {/* Add the Celsius symbol */}
              </div>
            </div>
            {/* --- End Custom Display --- */}
@@ -111,12 +116,12 @@ const ManualSettings = () => {
                 {manualFanSpeeds.map((speed) => (
                     <button
                         key={speed}
-                        onClick={() => handleDummySpeedClick(speed)}
+                        onClick={() => handleSpeedClick(speed)}
                         className={`
                             px-6 py-2 rounded-md text-lg font-semibold
                             transition-colors duration-150 ease-in-out
                             ${
-                                dummyCurrentFanSpeed === speed
+                                currentFanSpeed === speed
                                     ? 'bg-blue-600 text-white shadow-md'
                                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-gray-100'
                             }

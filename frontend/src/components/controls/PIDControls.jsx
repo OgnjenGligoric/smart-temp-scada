@@ -6,7 +6,9 @@
 
 import React, { useState, useEffect } from 'react'; // Import useState and useEffect (even if useEffect is commented out)
 import { motion } from 'framer-motion';
-// No other special libraries needed for inputs/buttons
+
+import {sendPIDSettings} from "../../../services/api" // Import the API function to send PID settings (commented out for styling preview)
+
 
 // Define default PID values and temp range for initial dummy state
 const DEFAULT_KP = '1.0';
@@ -17,7 +19,7 @@ const MIN_TEMP_INPUT = 15;
 const MAX_TEMP_INPUT = 30;
 
 
-const PIDControls = ({ status, onSetPIDParams, onSetTargetTemp }) => { // Props are listed but NOT used for rendering/logic in this version
+const PIDControls = ({ status, onSetPIDParams, onSetTargetTemp, calculatedPIDValue }) => { // Props are listed but NOT used for rendering/logic in this version
 
     // --- Dummy Local State for Input Values (for styling preview) ---
     // These state variables hold the values shown in the input fields.
@@ -25,41 +27,17 @@ const PIDControls = ({ status, onSetPIDParams, onSetTargetTemp }) => { // Props 
     const [kiInput, setKiInput] = useState(DEFAULT_KI);
     const [kdInput, setKdInput] = useState(DEFAULT_KD);
     const [targetTempInput, setTargetTempInput] = useState(DEFAULT_TARGET_TEMP);
-    // --- End Dummy State ---
-
-    // --- Dummy Sync Logic (Commented Out for Styling Preview) ---
-    // This useEffect would sync local state with real status, but is disabled for styling.
-    // useEffect(() => {
-    //     if (status) {
-    //         setKpInput(status.pid_kp?.toString() ?? DEFAULT_KP);
-    //         setKiInput(status.pid_ki?.toString() ?? DEFAULT_KI);
-    //         setKdInput(status.kdInput?.toString() ?? DEFAULT_KD);
-    //         setTargetTempInput(status.target_temp?.toString() ?? DEFAULT_TARGET_TEMP);
-    //     }
-    // }, [status?.pid_kp, status?.pid_ki, status?.kdInput, status?.target_temp]);
-    // --- End Dummy Sync Logic ---
-
-
-    // --- Dummy Handler for the "Set Values" Button (for styling preview) ---
-    // This function runs when the button is clicked but only logs values.
+   
     const handleSetValues = () => {
-        console.log("Set Values clicked (dummy)");
+        console.log("Set Values clicked");
         console.log("Kp:", kpInput, "Ki:", kiInput, "Kd:", kdInput, "Target Temp:", targetTempInput);
-        // In the real version, you would call onSetPIDParams and onSetTargetTemp here:
-        // onSetPIDParams(parseFloat(kpInput), parseFloat(kiInput), parseFloat(kdInput));
-        // onSetTargetTemp(parseFloat(targetTempInput));
+        
+        // Call the API function to send the PID settings (commented out for styling preview)
+        sendPIDSettings(kpInput, kiInput, kdInput, targetTempInput)
+        
     };
-    // --- End Dummy Handler ---
-
-    // --- Conditional Rendering Logic (TEMPORARILY REMOVED FOR STYLING PREVIEW) ---
-    // In the real version, this component would ONLY render if status.mode === 'auto_pid'.
-    // if (!status || status.mode !== 'auto_pid') {
-    //     return null;
-    // }
-    // --- End Conditional Rendering Logic ---
 
 
-    // This component will now ALWAYS render when included in the parent JSX.
     return (
         // Main container with your dark/glassmorphic style and animation
         <motion.div
@@ -113,7 +91,7 @@ const PIDControls = ({ status, onSetPIDParams, onSetTargetTemp }) => { // Props 
                             type="number"
                             id="kd-input"
                             value={kdInput}
-                            onChange={(e) => setKdKdInput(e.target.value)} // <-- Corrected typo: setKdInput
+                            onChange={(e) => setKdInput(e.target.value)} // <-- Corrected typo: setKdInput
                              className="w-full px-3 py-2 rounded-md bg-gray-700 bg-opacity-50 border border-gray-600 text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                              step="0.001" 
                              min="0"   
@@ -160,11 +138,8 @@ const PIDControls = ({ status, onSetPIDParams, onSetTargetTemp }) => { // Props 
             {/* Display Calculated PID Output (Read-only) */}
              <div className="mt-8 text-center"> {/* Add margin-top for spacing */}
                 <h3 className="text-lg font-medium text-gray-300 mb-2">Calculated PID Output:</h3> {/* Heading */}
-                 {/* Use a placeholder value for styling preview since real status isn't used */}
                  <p className="text-gray-100 text-3xl font-bold">
-                    N/A  {/* Placeholder value */}
-                 </p>
-                 <p className="text-sm text-gray-400 mt-1">(Displayed only - not controlling fan in preview)</p> {/* Helper text */}
+                 {calculatedPIDValue !== undefined ? Number(calculatedPIDValue).toFixed(2) : '---'}%                 </p>
              </div>
 
         </motion.div>

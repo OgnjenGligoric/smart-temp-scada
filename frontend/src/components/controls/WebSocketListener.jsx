@@ -16,6 +16,10 @@ const WebSocketListener = ({ url, onMessage }) => {
       onMessage(data); // Handle the incoming message
     });
 
+    socket.on("alarm",(data) => {
+      onMessage(data);
+    })
+
     // Optionally, listen for a custom event
     socket.on('my response', (data) => {
       console.log('Received custom event data:', data);

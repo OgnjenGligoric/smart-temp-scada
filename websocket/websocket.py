@@ -22,6 +22,11 @@ def handle_message(data):
     print(f"Received message: {data}")
     send(f"Server says: {data}")  # Send message back to the client
     emit("message",data, broadcast=True)
+
+@socketio.on('alarm')
+def handle_alarm(data):
+    print(f"Alarm received: {data}")
+    emit("alarm", data, broadcast=True)
 # Handle a custom event (optional)
 @socketio.on('my event')
 def handle_my_event(json):

@@ -10,15 +10,71 @@ import AlarmHistory from "../components/controls/AlarmHistory";
 import WebSocketListener from "../components/controls/WebSocketListener";
 import { useState } from "react";
 
-const salesStats = {
-	totalRevenue: "25°C",
-	presenceSwitch: "Active",
-	windowSwitch: "Closed",
-	salesGrowth: "2",
-};
+import {sendModeChange} from "../../services/api"
+
+
 
 const OverviewPage = () => {
 	const [message, setMessage] = useState(null);
+
+	const [status,setStatus] = useState({
+		temperature: "25°C",
+		presenceSwitch: "Active",
+		windowSwitch: "Closed",
+		fanSpeed: "2",
+		mode: "manual",
+		pidValue: "0",
+	});
+
+	const apiModeToMode = {
+		manual: "manual",
+		auto: "auto_3speed",
+		pid: "auto_pid",
+	  };
+	  
+
+	const handleMessageReceived = (data) => {
+		
+		console.log("Incoming data: ", data)
+		// Parse the incoming data and update the state accordingly
+		try {
+			const parsedData = data
+			setStatus((prevStatus) => ({
+				...prevStatus,
+				temperature: parsedData.temperature || prevStatus.temperature,
+				presenceSwitch: parsedData.switch_someone_present === 'on' ? 'Active' : 'Inactive',
+				windowSwitch: parsedData.switch_window === 'on' ? 'Active' : 'Inactive',
+				fanSpeed: (parsedData.leds_on & parsedData.leds_on.toString()) || prevStatus.fanSpeed,
+				mode: apiModeToMode[parsedData.mode] || prevStatus.mode,
+				pidValue: parsedData.pid_value || prevStatus.pidValue,
+			}));
+		} catch (error) {
+			console.error("Error parsing message:", error);
+		}
+	};
+
+	const sendModeChangeToServer = (newMode) => {
+		const modeMapping = {
+			manual: 'manual',
+			auto_3speed: 'auto',
+			auto_pid: 'pid',
+			// These two don't exist on backend:
+			off: null,
+			eco: null,
+		  };
+		
+		const backendMode = modeMapping[newMode];
+		
+		if (!backendMode) {
+			console.warn(`Mode "${newMode}" is not supported by backend, skipping API call.`);
+			return;
+		}
+		  
+		sendModeChange(backendMode)
+		.then(() => {
+			console.log("Mode change sent successfully:", newMode);
+		})
+	}
 
 	return (
 		<div className='flex-1 overflow-auto relative z-10'>
@@ -32,27 +88,35 @@ const OverviewPage = () => {
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 1 }}
 				>
-					<StatCard name='Temperature' icon={Thermometer} value={salesStats.totalRevenue} color='#6366F1' />
+					<StatCard name='Temperature' icon={Thermometer} value={status.temperature} color='#6366F1' />
 					<StatCard
 						name='Presence switch'
 						icon={User}
-						value={salesStats.presenceSwitch}
+						value={status.presenceSwitch}
 						color='#10B981'
 					/>
 					<StatCard
 						name='Window switch'
 						icon={DoorOpen}
-						value={salesStats.windowSwitch}
+						value={status.windowSwitch}
 						color='#F59E0B'
 					/>
-					<StatCard name='Fan speed' icon={Fan} value={salesStats.salesGrowth} color='#EF4444' />
+					<StatCard name='Fan speed' icon={Fan} value={status.fanSpeed} color='#EF4444' />
 				</motion.div>
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8'>
-					<ModeSelector />
+					<ModeSelector 
+					currentMode={status.mode}
+					onModeChange={(newMode) => {
+						// Handle when the user manually selects a mode
+						setStatus((prev) => ({ ...prev, mode: newMode }));
+				  
+						// Optional: Send the new mode to the server if needed
+						sendModeChangeToServer(newMode);
+					  }}/>
 					<ManualSettings />
 				</div>
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8'>
-					<PIDControls />
+					<PIDControls calculatedPIDValue={status.pidValue} />
 					<AlarmHistory />
 				</div>
 				<TemperatureOverviewChart />
@@ -62,8 +126,15 @@ const OverviewPage = () => {
 			<WebSocketListener
 				url="ws://localhost:5001"
 				onMessage={(data) => {
-				console.log("Received:", data);
-				setMessage(data);
+					if (!data.alarmDescription){
+						console.log("Received:", data);
+						handleMessageReceived(data);
+						setMessage(data);
+					}
+					// its an alarm, do something with it 
+					else{
+						console.log("Alarm received: ", data)
+					}
 				}}
 			/>
 		</div>
